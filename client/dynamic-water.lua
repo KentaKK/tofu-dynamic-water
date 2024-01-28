@@ -4,7 +4,7 @@ AddEventHandler('onClientResourceStart', function(resourceName)
     end
     print('Loading custom water.xml')
     local success = LoadWaterFromPath(GetCurrentResourceName(), 'flood.xml')
-    if success ~= 1 then
+    if not success then
         print('Failed to load water.xml, does the file exist within the resource?')
     end
     local waterQuadCount = GetWaterQuadCount()
@@ -15,10 +15,10 @@ AddEventHandler('onClientResourceStart', function(resourceName)
     print("wave quad count: " .. waveQuadCount)
 end)
 
-RegisterCommand('loadwater', function(source, args)
+RegisterCommand('loadwater', function()
     print('Loading custom water.xml')
     local success = LoadWaterFromPath(GetCurrentResourceName(), 'flood.xml')
-    if success ~= 1 then
+    if not success then
         print('Failed to load water.xml, does the file exist within the resource?')
     end
     local waterQuadCount = GetWaterQuadCount()
@@ -27,12 +27,7 @@ RegisterCommand('loadwater', function(source, args)
     print("calming quad count: " .. calmingQuadCount)
     local waveQuadCount = GetWaveQuadCount()
     print("wave quad count: " .. waveQuadCount)
-end)
-
-RegisterCommand('resetwater', function(source, args)
-    print('Resetting water to game defaults')
-    ResetWater()
-end)
+end, false)
 
 -- Change this value to set the maximum flood height
 local maxFloodHeight = 400
@@ -41,26 +36,34 @@ local increaseRate = 0.1
 -- Change this value to increase/decrease the time it takes to reach maxFloodHeight.
 local threadWait = 100
 
-RegisterCommand('flood', function(source, args)
-    Citizen.CreateThread(function()
+local isFlooding
+
+RegisterCommand('resetwater', function()
+    print('Resetting water to game defaults')
+    isFlooding = false
+    ResetWater()
+end, false)
+
+RegisterCommand('flood', function()
+    CreateThread(function()
         local pCoords, wCoords, allPeds = nil, nil, nil
         local ped = PlayerPedId()
         while true do
             pCoords = GetEntityCoords(ped)
             wCoords = GetWaterQuadAtCoords_3d(pCoords.x, pCoords.y, pCoords.z)
 
-            if wCoords ~= -1 then
+            if wCoords then
                 allPeds = GetGamePool('CPed')
                 for i = 1, #allPeds do
                     SetPedConfigFlag(allPeds[i], 65, true)
                     SetPedDiesInWater(allPeds[i], true)
                 end
             end
-            Citizen.Wait(5000)
+            Wait(5000)
         end
     end)
 
-    Citizen.CreateThread(function()
+    CreateThread(function()
         -- Things you could do to further enhance:
         --  - Configure WaveQuads and increase amplitude, remember disable all CalmingQuads which take priority!
         --  - Task all peds to flee from players/coords
@@ -72,12 +75,11 @@ RegisterCommand('flood', function(source, args)
         --  - Set extreme wind conditions for those trying to flee by air
 
         local waterQuadCount = GetWaterQuadCount()
-        local isFlooding = true
-
+        isFlooding = true
         while isFlooding do
             for i = 1, waterQuadCount, 1 do
                 local success, waterQuadLevel = GetWaterQuadLevel(i)
-                if success == 1 then
+                if success then
                     SetWaterQuadLevel(i, waterQuadLevel + increaseRate)
                 end
 
@@ -85,8 +87,8 @@ RegisterCommand('flood', function(source, args)
                     isFlooding = false
                 end
             end
-            Citizen.Wait(threadWait)
+            Wait(threadWait)
         end
         print('done')
     end)
-end)
+end, false)
